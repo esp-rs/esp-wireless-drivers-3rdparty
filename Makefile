@@ -39,6 +39,9 @@ ifeq ($(SOC), esp32)
 SDKCONFIG_RMS := CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ \
                  CONFIG_ESP32_TRACEMEM_RESERVE_DRAM \
                  CONFIG_PTHREAD_STACK_MIN
+else ifeq ($(SOC), esp32c2)
+SDKCONFIG_RMS := CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ \
+                 CONFIG_PTHREAD_STACK_MIN
 else ifeq ($(SOC), esp32c3)
 SDKCONFIG_RMS := CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ \
                  CONFIG_PTHREAD_STACK_MIN
@@ -59,6 +62,9 @@ GEN_LIBS  := $(foreach c,$(IDF_COMPONENTS),$(PRJ_DIR)/$(EXAMPLE)/build/esp-idf/$
 WIFI_LIBS := $(IDF_PATH)/components/esp_wifi/lib/$(SOC)/*
 ifeq ($(SOC), esp32)
 BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32/esp32/*
+IDF_LIBS  := $(GEN_LIBS) $(WIFI_LIBS) $(BT_LIBS)
+else ifeq ($(SOC), esp32c2)
+BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c2/esp32c2-bt-lib/*
 IDF_LIBS  := $(GEN_LIBS) $(WIFI_LIBS) $(BT_LIBS)
 else ifeq ($(SOC), esp32c3)
 BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c3_family/esp32c3/*
@@ -233,6 +239,10 @@ bt_files:
 	@$(call strip_macros,$(BT_DST_HF),$(BT_HF_RMS))
 
 ifeq ($(SOC), esp32)
+copy_hfiles: config_files wifi_files common_files event_files \
+             wpa_files nvs_files esptimer_files espsystem_files \
+			 soc_files bt_files
+else ifeq ($(SOC), esp32c2)
 copy_hfiles: config_files wifi_files common_files event_files \
              wpa_files nvs_files esptimer_files espsystem_files \
 			 soc_files bt_files
