@@ -83,9 +83,10 @@ else ifeq ($(SOC), esp32c2)
 BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c2/esp32c2-bt-lib/*
 IDF_LIBS  := $(GEN_LIBS) $(WIFI_LIBS) $(BT_LIBS) $(COEX_LIBS)
 else ifeq ($(SOC), esp32c6)
-BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c2/esp32c2-bt-lib/*
+BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/*
 IDF_LIBS  := $(GEN_LIBS) $(WIFI_LIBS) $(BT_LIBS) $(COEX_LIBS)
 else ifeq ($(SOC), esp32h2)
+BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/*
 IDF_LIBS  := $(GEN_LIBS) $(BT_LIBS) $(COEX_LIBS)
 else
 $(error "No BT libraries")
