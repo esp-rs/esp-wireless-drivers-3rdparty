@@ -86,7 +86,7 @@ else ifeq ($(SOC), esp32c6)
 BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/*
 IDF_LIBS  := $(GEN_LIBS) $(WIFI_LIBS) $(BT_LIBS) $(COEX_LIBS)
 else ifeq ($(SOC), esp32h2)
-BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/*
+BT_LIBS   := $(IDF_PATH)/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/libble_app.a
 IDF_LIBS  := $(GEN_LIBS) $(BT_LIBS) $(COEX_LIBS)
 else
 $(error "No BT libraries")
@@ -110,8 +110,8 @@ WIFI_SRC_HFS := $(WIFI_DIR)/esp_wifi.h \
                 $(PHY_DIR)/esp_private/phy.h \
                 $(WIFI_DIR)/esp_wifi_crypto_types.h \
                 $(WIFI_DIR)/esp_smartconfig.h \
-                $(COEX_DIR)/esp_coexist_adapter.h \
-                $(COEX_DIR)/esp_coexist_internal.h \
+                $(COEX_DIR)/private/esp_coexist_adapter.h \
+                $(COEX_DIR)/private/esp_coexist_internal.h \
                 $(COEX_DIR)/esp_coexist.h 
 
 # Wi-Fi Private
@@ -223,6 +223,7 @@ wifi_files: inc_dirs
 	@$(call copy_files,$(WIFI_PRIV_SRC_HFS),$(WIFI_PRIV_DST_DIR))
 	@$(call strip_macros,$(WIFI_PRIV_WIFI_DST_HF),$(WIFI_PRIV_WIFI_HF_RMS))
 	@$(call strip_macros,$(WIFI_PRIV_WIFI_PRIV_DST_HF),$(WIFI_PRIV_WIFI_PRIV_HF_RMS))
+	@sed -i "s@#include \"private/esp_coexist_adapter.h\"@#include \"esp_coexist_adapter.h\"@g" $(INCS_DIR)/esp_coexist_internal.h
 
 common_files: inc_dirs
 	@$(call copy_files,$(COMMON_SRC_HFS),$(INCS_DIR))
@@ -256,6 +257,7 @@ bt_files:
 	@mkdir -p $(SOC_INCS_DIR)
 	@$(call copy_files,$(BT_SRC_HF),$(SOC_INCS_DIR))
 	@$(call strip_macros,$(BT_DST_HF),$(BT_HF_RMS))
+	@$(call strip_macros,$(BT_DST_HF),esp_bt_cfg.h)
 
 ifeq ($(SOC), esp32)
 copy_hfiles: config_files wifi_files common_files event_files \
