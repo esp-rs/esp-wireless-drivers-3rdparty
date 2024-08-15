@@ -11,8 +11,6 @@ struct Cli {
     chips: Vec<String>,
 }
 
-// TODO avoid full paths in compiled code
-
 fn main() {
     env_logger::init();
     let args = Cli::parse();
@@ -65,7 +63,7 @@ fn main() {
     copy_files(
         &format!("{idf_path}/components/esp_coex/include"),
         &format!("{dst}"),
-    );    
+    );
     copy_files(
         &format!("{idf_path}/components/esp_wifi/include"),
         &format!("{dst}"),
@@ -77,7 +75,7 @@ fn main() {
     copy_files(
         &format!("{idf_path}/components/esp_coex/include/private"),
         &format!("{dst}"),
-    ); 
+    );
     copy_files(
         &format!("{idf_path}/components/esp_timer/include"),
         &format!("{dst}"),
@@ -108,18 +106,78 @@ fn main() {
     );
 
     replace_in_file(&format!("{dst}/esp_coexist_internal.h"), "private/", "");
-    replace_in_file(&format!("{dst}/esp_event.h"), r#"#include "freertos/FreeRTOS.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_event.h"), r#"#include "freertos/task.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_event.h"), r#"#include "freertos/queue.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_event.h"), r#"#include "freertos/semphr.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_system.h"), r#"#include "esp_attr.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_system.h"), r#"#include "esp_bit_defs.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_system.h"), r#"#include "esp_idf_version.h""#, r#""#);
+    replace_in_file(
+        &format!("{dst}/esp_event.h"),
+        r#"#include "freertos/FreeRTOS.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_event.h"),
+        r#"#include "freertos/task.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_event.h"),
+        r#"#include "freertos/queue.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_event.h"),
+        r#"#include "freertos/semphr.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_system.h"),
+        r#"#include "esp_attr.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_system.h"),
+        r#"#include "esp_bit_defs.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_system.h"),
+        r#"#include "esp_idf_version.h""#,
+        r#""#,
+    );
     replace_in_file(&format!("{dst}/nvs.h"), r#"#include "esp_attr.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_private/esp_wifi_private.h"), r#"#include "freertos/FreeRTOS.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_private/esp_wifi_private.h"), r#"#include "freertos/queue.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_private/wifi.h"), r#"#include "freertos/FreeRTOS.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_private/wifi.h"), r#"#include "freertos/queue.h""#, r#""#);
+    replace_in_file(
+        &format!("{dst}/esp_private/esp_wifi_private.h"),
+        r#"#include "freertos/FreeRTOS.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_private/esp_wifi_private.h"),
+        r#"#include "freertos/queue.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_private/wifi.h"),
+        r#"#include "freertos/FreeRTOS.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_private/wifi.h"),
+        r#"#include "freertos/queue.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_task.h"),
+        r#"#include "freertos/FreeRTOS.h""#,
+        r#""#,
+    );
+    replace_in_file(
+        &format!("{dst}/esp_task.h"),
+        r#"#include "freertos/FreeRTOSConfig.h""#,
+        r#""#,
+    );
+
+    // update version file
+    let version = idf_version();
+    log::info!("ESP-IDF version {}", &version);
+
+    fs::write("version", &version).unwrap();
 }
 
 fn process(chip: &str) {
@@ -151,10 +209,12 @@ fn process(chip: &str) {
     mk_dir(&dst);
 
     // the just built supplicant
-    copy_file(
-        "./helper_project/build/esp-idf/wpa_supplicant/libwpa_supplicant.a",
-        &format!("{dst}/libwpa_supplicant.a"),
-    );
+    if chip != "esp32h2" {
+        copy_file(
+            "./helper_project/build/esp-idf/wpa_supplicant/libwpa_supplicant.a",
+            &format!("{dst}/libwpa_supplicant.a"),
+        );
+    }
 
     // blobs from ESP-IDF installation
     let idf_path = std::env::var("IDF_PATH").unwrap();
@@ -193,10 +253,12 @@ fn process(chip: &str) {
             &format!("{idf_path}/components/esp_wifi/lib/{chip}/libespnow.a"),
             &format!("{dst}/libespnow.a"),
         );
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libmesh.a"),
-            &format!("{dst}/libmesh.a"),
-        );
+        if chip != "esp32c2" {
+            copy_file(
+                &format!("{idf_path}/components/esp_wifi/lib/{chip}/libmesh.a"),
+                &format!("{dst}/libmesh.a"),
+            );
+        }
         copy_file(
             &format!("{idf_path}/components/esp_wifi/lib/{chip}/libnet80211.a"),
             &format!("{dst}/libnet80211.a"),
@@ -205,10 +267,12 @@ fn process(chip: &str) {
             &format!("{idf_path}/components/esp_wifi/lib/{chip}/libsmartconfig.a"),
             &format!("{dst}/libsmartconfig.a"),
         );
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libwapi.a"),
-            &format!("{dst}/libwapi.a"),
-        );
+        if chip != "esp32c2" {
+            copy_file(
+                &format!("{idf_path}/components/esp_wifi/lib/{chip}/libwapi.a"),
+                &format!("{dst}/libwapi.a"),
+            );
+        }
     }
 
     // coex
@@ -280,19 +344,46 @@ fn process(chip: &str) {
         &format!("{idf_path}/components/esp_phy/{chip}/include"),
         &format!("{dst}"),
     );
-    copy_files(
-        &format!("{idf_path}/components/bt/include/{chip}/include"),
-        &format!("{dst}"),
-    );
+    if chip != "esp32s2" {
+        if chip != "esp32s3" {
+            copy_files(
+                &format!("{idf_path}/components/bt/include/{chip}/include"),
+                &format!("{dst}"),
+            );
+        } else {
+            copy_files(
+                &format!("{idf_path}/components/bt/include/esp32c3/include"),
+                &format!("{dst}"),
+            );
+        }
+    }
     copy_file(
         "./helper_project/build/config/sdkconfig.h",
         &format!("{dst}/sdkconfig.h"),
     );
 
-    replace_in_file(&format!("{dst}/esp_bt.h"), r#"#include "esp_task.h""#, r#""#);
-    replace_in_file(&format!("{dst}/esp_bt.h"), r#"#include "../../../../controller/esp32c6/esp_bt_cfg.h""#, r#""#);
+    if chip != "esp32s2" {
+        replace_in_file(
+            &format!("{dst}/esp_bt.h"),
+            r#"#include "esp_task.h""#,
+            r#""#,
+        );
+    }
 
+    if chip != "esp32s2" {
+        replace_in_file(
+            &format!("{dst}/esp_bt.h"),
+            r#"#include "../../../../controller/"#,
+            r#"//#include "../../../../controller/"#,
+        );
+    }
 
+    if chip == "esp32c2" || chip == "esp32c6" || chip == "esp32h2" {
+        copy_file(
+            &format!("{idf_path}/components/bt/controller/{chip}/esp_bt_cfg.h"),
+            &format!("{dst}/esp_bt_cfg.h"),
+        );
+    }
 }
 
 fn remove_dir_all(path: &str) {
@@ -317,6 +408,7 @@ fn copy_file(from: &str, to: &str) {
 fn copy_files(from: &str, to: &str) {
     let cwd = env::current_dir().unwrap();
 
+    log::debug!("Copy from path {:?}", windows_safe_path(&cwd.join(from)));
     let files: Vec<fs::DirEntry> = windows_safe_path(&cwd.join(from))
         .as_path()
         .read_dir()
@@ -324,7 +416,10 @@ fn copy_files(from: &str, to: &str) {
         .map(|v| v.unwrap())
         .collect();
 
-    let files: Vec<&fs::DirEntry> = files.iter().filter(|v| v.file_type().unwrap().is_file()).collect();
+    let files: Vec<&fs::DirEntry> = files
+        .iter()
+        .filter(|v| v.file_type().unwrap().is_file())
+        .collect();
 
     for file in files {
         let fname = file.file_name().into_string().unwrap();
@@ -338,8 +433,16 @@ fn copy_files(from: &str, to: &str) {
 }
 
 fn build(cwd: &str, args: &[&str]) {
+    let mut adapted_args = Vec::new();
     #[cfg(target_os = "windows")]
-    let cmd = "idf.py.exe";
+    adapted_args.push("/c");
+    #[cfg(target_os = "windows")]
+    adapted_args.push("idf.py");
+    adapted_args.extend_from_slice(args);
+    let args = adapted_args;
+
+    #[cfg(target_os = "windows")]
+    let cmd = "cmd";
 
     #[cfg(not(target_os = "windows"))]
     let cmd = "idf.py";
@@ -361,14 +464,42 @@ fn build(cwd: &str, args: &[&str]) {
     }
 }
 
+fn idf_version() -> String {
+    #[cfg(target_os = "windows")]
+    let cmd = "cmd";
+    #[cfg(target_os = "windows")]
+    let args = vec!["/c", "idf.py", "--version"];
+
+    #[cfg(not(target_os = "windows"))]
+    let cmd = "idf.py";
+    #[cfg(not(target_os = "windows"))]
+    let args = vec!["--version"];
+
+    let output = std::process::Command::new(cmd)
+        .args(args)
+        .output()
+        .expect("Unable to run command {cmd}");
+
+    if !output.status.success() {
+        println!(
+            "Failed to run esp-idf {}",
+            str::from_utf8(&output.stderr).unwrap()
+        );
+    }
+
+    let output = str::from_utf8(&output.stdout).unwrap();
+
+    output.to_string()
+}
+
 fn mk_dir(p: &str) {
-    let mut cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir().unwrap();
     let p = windows_safe_path(&cwd.join(p));
     fs::create_dir_all(p).expect("Unable to create libs directory");
 }
 
 fn replace_in_file(p: &str, search: &str, replace: &str) {
-    let mut cwd = env::current_dir().unwrap();
+    let cwd = env::current_dir().unwrap();
     let p = windows_safe_path(&cwd.join(p));
 
     let original = fs::read_to_string(&p).unwrap();
