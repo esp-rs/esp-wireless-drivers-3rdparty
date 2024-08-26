@@ -183,7 +183,7 @@ fn main() {
 fn process(chip: &str) {
     log::info!("Processing {chip}");
 
-    // // clean
+    // clean
     log::info!("Clean");
     remove_dir_all("./helper_project/build");
     remove_file("./helper_project/sdkconfig");
@@ -192,6 +192,7 @@ fn process(chip: &str) {
 
     // build
     log::info!("Build");
+
     copy_file(
         &format!("./patch/{chip}/sdkconfig.defaults"),
         "./helper_project/sdkconfig.defaults",
@@ -207,6 +208,12 @@ fn process(chip: &str) {
     let dst = format!("./libs/{chip}/");
     remove_dir_all(&dst);
     mk_dir(&dst);
+
+    // the printf compat library
+    copy_file(
+        "./helper_project/build/esp-idf/main/libprintf.a",
+        &format!("{dst}/libprintf.a"),
+    );
 
     // the just built supplicant
     if chip != "esp32h2" {
