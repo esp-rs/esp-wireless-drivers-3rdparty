@@ -73,6 +73,10 @@ fn main() {
         &format!("{dst}/esp_private"),
     );
     copy_files(
+        &format!("{idf_path}/components/esp_wifi/include/local"),
+        &format!("{dst}/local"),
+    );    
+    copy_files(
         &format!("{idf_path}/components/esp_coex/include/private"),
         &format!("{dst}"),
     );
