@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,7 +41,7 @@ enum {
 /**
   * @brief Channel state information(CSI) configuration type
   */
-#if CONFIG_IDF_TARGET_ESP32C5
+#if CONFIG_SOC_WIFI_MAC_VERSION_NUM == 3
 typedef struct {
     uint32_t enable                 : 1;    /**< enable to acquire CSI */
     uint32_t acquire_csi_legacy     : 1;    /**< enable to acquire L-LTF */
@@ -167,12 +167,13 @@ typedef enum {
     RX_BB_FORMAT_HE_MU    = 5,           /**< the reception frame is a HE MU MPDU */
     RX_BB_FORMAT_HE_ERSU  = 6,           /**< the reception frame is a HE ER SU MPDU */
     RX_BB_FORMAT_HE_TB    = 7,           /**< the reception frame is a HE TB MPDU */
+    RX_BB_FORMAT_VHT_MU    = 11,         /**< the reception frame is a VHT MU MPDU */
 } wifi_rx_bb_format_t;
 
 /**
   * @brief RxControl Info
   */
-#if CONFIG_IDF_TARGET_ESP32C5
+#if CONFIG_SOC_WIFI_MAC_VERSION_NUM == 3
 typedef struct {
     signed rssi: 8;                               /**< the RSSI of the reception frame */
     unsigned rate: 5;                             /**< if cur_bb_format is RX_BB_FORMAT_11B, it's the transmission rate. otherwise it's Rate field of L-SIG */
@@ -192,7 +193,7 @@ typedef struct {
     unsigned : 15;                                /**< reserved */
     unsigned : 15;                                /**< reserved */
     unsigned : 2;                                 /**< reserved */
-    unsigned noise_floor: 8;                      /**< the noise floor of the reception frame */
+    signed noise_floor: 8;                        /**< the noise floor of the reception frame */
     signed : 8;                                   /**< reserved */
     signed : 8;                                   /**< reserved */
     unsigned : 8;                                 /**< reserved */
@@ -204,9 +205,9 @@ typedef struct {
     unsigned : 1;                                 /**< reserved */
     unsigned : 1;                                 /**< reserved */
     unsigned : 1;                                 /**< reserved */
-    unsigned channel: 4;                          /**< the primary channel */
-    unsigned second: 4;                           /**< the second channel if in HT40 */
-    unsigned : 12;                                /**< reserved */
+    unsigned channel: 8;                          /**< the primary channel */
+    unsigned second: 8;                           /**< the second channel if in HT40 */
+    unsigned : 4;                                 /**< reserved */
     unsigned : 4;                                 /**< reserved */
     unsigned : 1;                                 /**< reserved */
     unsigned : 7;                                 /**< reserved */
@@ -322,7 +323,7 @@ typedef enum {
 
 /** Argument structure for WIFI_EVENT_TWT_SET_UP event */
 typedef struct {
-    wifi_itwt_setup_config_t config;      /**< itwt setup config, this value is determined by the AP */
+    wifi_itwt_setup_config_t config;       /**< itwt setup config, this value is determined by the AP */
     esp_err_t status;                     /**< itwt setup status, 1: indicate setup success, others : indicate setup fail */
     uint8_t reason;                       /**< itwt setup frame tx fail reason */
     uint64_t target_wake_time;            /**< TWT SP start time */
@@ -406,6 +407,7 @@ typedef enum {
 /** Argument structure for twt configuration */
 typedef struct {
     bool post_wakeup_event;              /**< post twt wakeup event */
+    bool twt_enable_keep_alive;          /**< twt enable send qos null to keep alive */
 } wifi_twt_config_t;
 
 /** Argument structure for WIFI_EVENT_TWT_WAKEUP event */

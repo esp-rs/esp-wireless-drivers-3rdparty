@@ -28,6 +28,16 @@ typedef enum {
     COEX_SCHM_CALLBACK_TYPE_I154,
 } coex_schm_callback_type_t;
 
+typedef enum {
+    COEX_SCHM_ST_TYPE_WIFI = 0,
+    COEX_SCHM_ST_TYPE_BLE,
+    COEX_SCHM_ST_TYPE_BT,
+} coex_schm_st_type_t;
+
+#define COEX_STATUS_GET_WIFI_BITMAP     (1 << COEX_SCHM_ST_TYPE_WIFI)
+#define COEX_STATUS_GET_BLE_BITMAP      (1 << COEX_SCHM_ST_TYPE_BLE)
+#define COEX_STATUS_GET_BT_BITMAP       (1 << COEX_SCHM_ST_TYPE_BT)
+
 typedef void (* coex_func_cb_t)(uint32_t event, int sched_cnt);
 typedef esp_err_t (* coex_set_lpclk_source_callback_t)(void);
 typedef void (* coex_wifi_channel_change_cb_t)(uint8_t primary, uint8_t secondary);
@@ -94,9 +104,11 @@ esp_err_t coex_preference_set(coex_prefer_t prefer);
 
 /**
  * @brief Get software coexist status.
+ *
+ * @param bitmap : bitmap of the module getting status.
  * @return : software coexist status
  */
-uint32_t coex_status_get(void);
+uint32_t coex_status_get(uint8_t bitmap);
 
 /**
  * @brief WiFi requests coexistence.
@@ -383,6 +395,15 @@ int coex_schm_flexible_period_set(uint8_t period);
   */
 uint8_t coex_schm_flexible_period_get(void);
 #endif
+
+/**
+ * @brief     Get coexistence scheme phase by phase index.
+ *
+ * @param     phase_idx    Coexistence phase index
+ *
+ * @return    Coexistence scheme phase
+ */
+void * coex_schm_get_phase_by_idx(int phase_idx);
 
 /**
   * @brief     Check the MD5 values of the coexistence adapter header files in IDF and WiFi library

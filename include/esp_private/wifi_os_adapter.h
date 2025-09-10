@@ -149,12 +149,13 @@ typedef struct wifi_osi_funcs_t {
     int (* _coex_schm_process_restart)(void);
     int (* _coex_schm_register_cb)(int, int (* cb)(int));
     int (* _coex_register_start_cb)(int (* cb)(void));
-#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32C5
+#if CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C61
     void (* _regdma_link_set_write_wait_content)(void *, uint32_t, uint32_t);
     void * (* _sleep_retention_find_link_by_id)(int);
 #endif
     int (*_coex_schm_flexible_period_set)(uint8_t);
     uint8_t (*_coex_schm_flexible_period_get)(void);
+    void * (*_coex_schm_get_phase_by_idx)(int);
     int32_t _magic;
 } wifi_osi_funcs_t;
 

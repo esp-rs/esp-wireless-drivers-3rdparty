@@ -75,7 +75,7 @@ fn main() {
     copy_files(
         &format!("{idf_path}/components/esp_wifi/include/local"),
         &format!("{dst}/local"),
-    );    
+    );
     copy_files(
         &format!("{idf_path}/components/esp_coex/include/private"),
         &format!("{dst}"),
@@ -108,6 +108,48 @@ fn main() {
         &format!("{idf_path}/components/esp_hw_support/include/esp_interface.h"),
         &format!("{dst}/esp_interface.h"),
     );
+    copy_file(
+        &format!("{idf_path}/components/esp_hw_support/include/esp_private/esp_pmu.h"),
+        &format!("{dst}/esp_private/esp_pmu.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/esp_hw_support/include/esp_private/esp_modem_clock.h"),
+        &format!("{dst}/esp_private/esp_modem_clock.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/hal/include/hal/modem_clock_types.h"),
+        &format!("{dst}/hal/modem_clock_types.h"),
+    );
+
+    copy_file(
+        &format!("{idf_path}/components/esp_common/include/esp_bit_defs.h"),
+        &format!("{dst}/esp_bit_defs.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/esp_common/include/esp_attr.h"),
+        &format!("{dst}/esp_attr.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/esp_common/include/esp_types.h"),
+        &format!("{dst}/esp_types.h"),
+    );
+
+    copy_file(
+        &format!("{idf_path}/components/hal/include/hal/pmu_types.h"),
+        &format!("{dst}/hal/pmu_types.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/hal/platform_port/include/hal/assert.h"),
+        &format!("{dst}/hal/assert.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/hal/platform_port/include/hal/misc.h"),
+        &format!("{dst}/hal/misc.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/hal/include/hal/modem_clock_hal.h"),
+        &format!("{dst}/hal/modem_clock_hal.h"),
+    );
 
     replace_in_file(&format!("{dst}/esp_coexist_internal.h"), "private/", "");
     replace_in_file(
@@ -132,20 +174,9 @@ fn main() {
     );
     replace_in_file(
         &format!("{dst}/esp_system.h"),
-        r#"#include "esp_attr.h""#,
-        r#""#,
-    );
-    replace_in_file(
-        &format!("{dst}/esp_system.h"),
-        r#"#include "esp_bit_defs.h""#,
-        r#""#,
-    );
-    replace_in_file(
-        &format!("{dst}/esp_system.h"),
         r#"#include "esp_idf_version.h""#,
         r#""#,
     );
-    replace_in_file(&format!("{dst}/nvs.h"), r#"#include "esp_attr.h""#, r#""#);
     replace_in_file(
         &format!("{dst}/esp_private/esp_wifi_private.h"),
         r#"#include "freertos/FreeRTOS.h""#,
@@ -207,11 +238,19 @@ fn process(chip: &str) {
         &[&format!("-DIDF_TARGET={chip}"), "build"],
     );
 
-    // copy static libraries
-    log::info!("Copy static libraries");
     let dst = format!("./libs/{chip}/");
     remove_dir_all(&dst);
     mk_dir(&dst);
+
+    if chip != "esp32h2" {
+        log::info!("Create libregulatory.a");
+        ar(chip, "helper_project",
+            &[&format!("../{dst}/libregulatory.a"), "./build/esp-idf/esp_wifi/CMakeFiles/__idf_esp_wifi.dir/regulatory/esp_wifi_regulatory.c.obj",],
+        );
+    }
+
+    // copy static libraries
+    log::info!("Copy static libraries");
 
     // the printf compat library
     copy_file(
@@ -328,7 +367,7 @@ fn process(chip: &str) {
         "esp32c6" => {
             copy_file(
                 &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/libble_app.a"
+                    "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/esp32c6/libble_app.a"
                 ),
                 &format!("{dst}/libble_app.a"),
             );
@@ -372,7 +411,22 @@ fn process(chip: &str) {
         "./helper_project/build/config/sdkconfig.h",
         &format!("{dst}/sdkconfig.h"),
     );
-
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/include/soc/soc_caps.h"),
+        &format!("{dst}/soc/soc_caps.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/include/soc/periph_defs.h"),
+        &format!("{dst}/soc/periph_defs.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/include/soc/interrupts.h"),
+        &format!("{dst}/soc/interrupts.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/include/soc/clk_tree_defs.h"),
+        &format!("{dst}/soc/clk_tree_defs.h"),
+    );
     if chip != "esp32s2" {
         replace_in_file(
             &format!("{dst}/esp_bt.h"),
@@ -395,6 +449,67 @@ fn process(chip: &str) {
             &format!("{dst}/esp_bt_cfg.h"),
         );
     }
+
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/include/soc/soc.h"),
+        &format!("{dst}/soc/soc.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/soc/{chip}/register/soc/reg_base.h"),
+        &format!("{dst}/soc/reg_base.h"),
+    );
+
+    let soc_pmu_supported = ["esp32c6", "esp32h2"].contains(&chip);
+    if soc_pmu_supported {
+        copy_file(
+            &format!("{idf_path}/components/hal/{chip}/include/hal/pmu_hal.h"),
+            &format!("{dst}/hal/pmu_hal.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/hal/{chip}/include/hal/pmu_ll.h"),
+            &format!("{dst}/hal/pmu_ll.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/soc/{chip}/register/soc/pmu_struct.h"),
+            &format!("{dst}/soc/pmu_struct.h"),
+        );
+        copy_file(
+            &format!(
+                "{idf_path}/components/esp_hw_support/port/{chip}/private_include/pmu_param.h"
+            ),
+            &format!("{dst}/pmu_param.h"),
+        );
+        copy_file(
+            &format!(
+                "{idf_path}/components/esp_hw_support/port/{chip}/private_include/pmu_bit_defs.h"
+            ),
+            &format!("{dst}/pmu_bit_defs.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/soc/{chip}/register/soc/pmu_reg.h"),
+            &format!("{dst}/soc/pmu_reg.h"),
+        );
+    }
+
+    let modem_lock_is_independent = ["esp32c6", "esp32h2"].contains(&chip);
+    if modem_lock_is_independent {
+        copy_file(
+            &format!("{idf_path}/components/soc/{chip}/include/modem/modem_syscon_struct.h"),
+            &format!("{dst}/modem/modem_syscon_struct.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/soc/{chip}/include/modem/modem_lpcon_struct.h"),
+            &format!("{dst}/modem/modem_lpcon_struct.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/hal/{chip}/include/hal/modem_lpcon_ll.h"),
+            &format!("{dst}/hal/modem_lpcon_ll.h"),
+        );
+        copy_file(
+            &format!("{idf_path}/components/hal/{chip}/include/hal/modem_syscon_ll.h"),
+            &format!("{dst}/hal/modem_syscon_ll.h"),
+        );
+    }
 }
 
 fn remove_dir_all(path: &str) {
@@ -409,11 +524,12 @@ fn remove_file(path: &str) {
 
 fn copy_file(from: &str, to: &str) {
     let cwd = env::current_dir().unwrap();
+    std::fs::create_dir_all(windows_safe_path(&cwd.join(to)).parent().unwrap()).unwrap();
     fs::copy(
         windows_safe_path(&cwd.join(from)),
         windows_safe_path(&cwd.join(to)),
     )
-    .expect("Unable to copy sdkconfig.defaults");
+    .expect(&format!("Unable to copy {from} to {to}"));
 }
 
 fn copy_files(from: &str, to: &str) {
@@ -470,6 +586,34 @@ fn build(cwd: &str, args: &[&str]) {
     if !output.status.success() {
         println!(
             "Failed to run build {}",
+            str::from_utf8(&output.stderr).unwrap()
+        );
+    }
+}
+
+fn ar(chip: &str, cwd: &str, args: &[&str]) {
+    let ar = if ["esp32", "esp32s2", "esp32s3"].contains(&chip) {
+        "xtensa-esp-elf-ar"
+    } else {
+        "riscv32-esp-elf-ar"
+    };
+
+    let mut args: Vec<&str> = Vec::from(args);
+    args.insert(0, "-rc");
+
+    let cwd = windows_safe_path(&env::current_dir().unwrap().join(cwd));
+    let output = std::process::Command::new(ar)
+        .args(args)
+        .current_dir(cwd)
+        .stdout(std::process::Stdio::inherit())
+        .stdin(std::process::Stdio::inherit())
+        .output()
+        .expect("Unable to run command {cmd}");
+
+    if !output.status.success() {
+        println!(
+            "Failed to run {} {}",
+            ar,
             str::from_utf8(&output.stderr).unwrap()
         );
     }
