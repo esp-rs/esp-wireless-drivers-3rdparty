@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -614,6 +614,11 @@ esp_err_t esp_wifi_internal_set_spp_amsdu(wifi_interface_t ifidx, bool spp_cap, 
 void esp_wifi_internal_update_light_sleep_default_params(int min_freq_mhz, int max_freq_mhz);
 
 /**
+ * @brief   Update WIFI modem sleep default parameters
+ */
+void esp_wifi_internal_update_modem_sleep_default_params(void);
+
+/**
  * @brief   Set the min active time for wifi to enter the sleep state when light sleep
  *
  * @param   min_active_time: minimum timeout time  for waiting to receive
@@ -749,6 +754,64 @@ esp_err_t esp_nan_internal_datapath_resp(wifi_nan_datapath_resp_t *resp);
   *    - others: failed
   */
 esp_err_t esp_nan_internal_datapath_end(wifi_nan_datapath_end_req_t *req);
+
+/**
+  * @brief     Connect WiFi station to the AP.
+  *
+  * @attention 1. This API only impact WIFI_MODE_STA or WIFI_MODE_APSTA mode
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
+  *    - ESP_ERR_WIFI_MODE: WiFi mode error
+  *    - ESP_ERR_WIFI_CONN: WiFi internal error, station or soft-AP control block wrong
+  *    - ESP_ERR_WIFI_SSID: SSID of AP which station connects is invalid
+  */
+esp_err_t esp_wifi_connect_internal(void);
+
+/**
+  * @brief     Disconnect WiFi station from the AP.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_WIFI_NOT_INIT: WiFi was not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi was not started by esp_wifi_start
+  *    - ESP_FAIL: other WiFi internal errors
+  *
+  */
+esp_err_t esp_wifi_disconnect_internal(void);
+
+/**
+  * @brief Get the time information from the MAC clock. The time is precise only if modem sleep or light sleep is not enabled.
+  *
+  * @return 32-bit time value, unit: microsecond. This time is only 32 bits, which means it will overflow and reset to 0 after approximately 71 minutes.
+  *         Therefore, when using it, the time difference between two consecutive readings should not be too long.
+  */
+uint32_t esp_wifi_internal_get_mac_clock_time(void);
+
+#if CONFIG_ESP_WIFI_SLP_SAMPLE_BEACON_FEATURE
+/**
+ * @brief   Configure wifi beacon offset default parameters
+ *
+ * @param   config: the configuration parameters for wifi beacon offset
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - others: failed
+  */
+esp_err_t esp_wifi_beacon_offset_configure(wifi_beacon_offset_config_t *config);
+#endif
+
+/**
+ * @brief empty init pm_beacon_offset.
+ */
+void pm_beacon_offset_funcs_empty_init(void);
+
+/**
+ * @brief This API is not context safe and enable easy fragment just for internal test only.
+ */
+void esp_wifi_enable_easy_fragment(bool enable);
 
 #ifdef __cplusplus
 }

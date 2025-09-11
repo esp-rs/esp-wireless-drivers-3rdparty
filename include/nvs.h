@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-
+#include "esp_attr.h"
 #include "esp_err.h"
 
 #ifdef __cplusplus

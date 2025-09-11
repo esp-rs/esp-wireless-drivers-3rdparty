@@ -111,7 +111,7 @@ extern "C" {
 #define ESP_ERR_MESH_DISCARD_DUPLICATE    (ESP_ERR_MESH_BASE + 20)   /**< discard the packet due to the duplicate sequence number */
 #define ESP_ERR_MESH_DISCARD              (ESP_ERR_MESH_BASE + 21)   /**< discard the packet */
 #define ESP_ERR_MESH_VOTING               (ESP_ERR_MESH_BASE + 22)   /**< vote in progress */
-#define ESP_ERR_MESH_XMIT                 (ESP_ERR_MESH_BASE + 23)   /**< XMIT */
+#define ESP_ERR_MESH_XMIT                 (ESP_ERR_MESH_BASE + 23)   /**< TX fail, the tx state is a value other than timeout and disconnect */
 #define ESP_ERR_MESH_QUEUE_READ           (ESP_ERR_MESH_BASE + 24)   /**< error in reading queue */
 #define ESP_ERR_MESH_PS                   (ESP_ERR_MESH_BASE + 25)   /**< mesh PS is not specified as enable or disable */
 #define ESP_ERR_MESH_RECV_RELEASE         (ESP_ERR_MESH_BASE + 26)   /**< release esp_mesh_recv_toDS */
@@ -637,7 +637,8 @@ esp_err_t esp_mesh_stop(void);
  * @param[in]  to  the address of the final destination of the packet
  *             - If the packet is to the root, set this parameter to NULL.
  *             - If the packet is to an external IP network, set this parameter to the IPv4:PORT combination.
- *               This packet will be delivered to the root firstly, then the root will forward this packet to the final IP server address.
+ *               This packet will be delivered to the root firstly, then users need to call esp_mesh_recv_toDS() on the root node to forward this
+ *               packet to the final IP server address.
  * @param[in]  data  pointer to a sending mesh packet
  *             - Field size should not exceed MESH_MPS. Note that the size of one mesh packet should not exceed MESH_MTU.
  *             - Field proto should be set to data protocol in use (default is MESH_PROTO_BIN for binary).
@@ -681,6 +682,8 @@ esp_err_t esp_mesh_stop(void);
  *    - ESP_ERR_MESH_QUEUE_FULL
  *    - ESP_ERR_MESH_NO_ROUTE_FOUND
  *    - ESP_ERR_MESH_DISCARD
+ *    - ESP_ERR_MESH_NOT_SUPPORT
+ *    - ESP_ERR_MESH_XMIT
  */
 esp_err_t esp_mesh_send(const mesh_addr_t *to, const mesh_data_t *data,
                         int flag, const mesh_opt_t opt[],  int opt_count);

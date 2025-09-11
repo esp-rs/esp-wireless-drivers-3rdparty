@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -44,6 +44,14 @@ extern "C" {
     #else
     #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (0)
     #endif
+
+    #define DEGAULT_BT_LE_2M_PHY                         (CONFIG_BT_NIMBLE_LL_CFG_FEAT_LE_2M_PHY)
+    #define DEGAULT_BT_LE_CODED_PHY                      (CONFIG_BT_NIMBLE_LL_CFG_FEAT_LE_CODED_PHY)
+    #define DEFAULT_BT_LE_EXT_ADV                        (CONFIG_BT_NIMBLE_EXT_ADV)
+    #define DEFAULT_BT_LE_PERIODIC_ADV                   (CONFIG_BT_NIMBLE_ENABLE_PERIODIC_ADV)
+    #define DEFAULT_BT_LE_EXT_SCAN                       (CONFIG_BT_NIMBLE_EXT_SCAN)
+    #define DEFAULT_BT_LE_PERIODIC_SYNC                  (CONFIG_BT_NIMBLE_ENABLE_PERIODIC_SYNC)
+    #define DEFAULT_BT_LE_PAST                           (CONFIG_BT_NIMBLE_PERIODIC_ADV_SYNC_TRANSFER)
 
     #define DEFAULT_BT_LE_ROLE_OBSERVER                  MYNEWT_VAL(BLE_ROLE_OBSERVER)
     #define DEFAULT_BT_LE_ROLE_CENTROL                   MYNEWT_VAL(BLE_ROLE_CENTRAL)
@@ -122,10 +130,53 @@ extern "C" {
     #else
         #define DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT (8)
     #endif
+
     #if defined(CONFIG_BT_LE_50_FEATURE_SUPPORT)
         #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (1)
     #else
         #define DEFAULT_BT_LE_50_FEATURE_SUPPORT (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_LL_CFG_FEAT_LE_2M_PHY)
+        #define DEGAULT_BT_LE_2M_PHY (CONFIG_BT_LE_LL_CFG_FEAT_LE_2M_PHY)
+    #else
+        #define DEGAULT_BT_LE_2M_PHY (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_LL_CFG_FEAT_LE_CODED_PHY)
+        #define DEGAULT_BT_LE_CODED_PHY (CONFIG_BT_LE_LL_CFG_FEAT_LE_CODED_PHY)
+    #else
+        #define DEGAULT_BT_LE_CODED_PHY (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_EXT_ADV)
+        #define DEFAULT_BT_LE_EXT_ADV       (CONFIG_BT_LE_EXT_ADV)
+    #else
+        #define DEFAULT_BT_LE_EXT_ADV       (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_ENABLE_PERIODIC_ADV)
+        #define DEFAULT_BT_LE_PERIODIC_ADV  (CONFIG_BT_LE_ENABLE_PERIODIC_ADV)
+    #else
+        #define DEFAULT_BT_LE_PERIODIC_ADV  (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_EXT_SCAN)
+        #define DEFAULT_BT_LE_EXT_SCAN      (CONFIG_BT_LE_EXT_SCAN)
+    #else
+        #define DEFAULT_BT_LE_EXT_SCAN      (0)
+    #endif
+
+    #if defined(CONFIG_BT_LE_ENABLE_PERIODIC_SYNC)
+        #define DEFAULT_BT_LE_PERIODIC_SYNC  (CONFIG_BT_LE_ENABLE_PERIODIC_SYNC)
+    #else
+        #define DEFAULT_BT_LE_PERIODIC_SYNC  (0)
+    #endif
+
+    #if defined(BT_LE_PERIODIC_ADV_SYNC_TRANSFER)
+        #define DEFAULT_BT_LE_PAST          (BT_LE_PERIODIC_ADV_SYNC_TRANSFER)
+    #else
+        #define DEFAULT_BT_LE_PAST          (0)
     #endif
 
     #if defined(CONFIG_BT_LE_ROLE_CENTROL_ENABLE)
@@ -169,10 +220,48 @@ extern "C" {
 
 #define DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF CONFIG_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
 
+#ifdef CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS
+#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (CONFIG_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS)
+#else
+#define DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS  (0)
+#endif
+
+#ifdef CONFIG_BT_LE_CTRL_LLCP_CONN_UPDATE
+#define BT_CTRL_BLE_LLCP_CONN_UPDATE (1<<0)
+#else
+#define BT_CTRL_BLE_LLCP_CONN_UPDATE (0<<0)
+#endif
+
+#ifdef CONFIG_BT_LE_CTRL_LLCP_CHAN_MAP_UPDATE
+#define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (1<<1)
+#else
+#define BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE (0<<1)
+#endif
+
+#ifdef CONFIG_BT_LE_CTRL_LLCP_PHY_UPDATE
+#define BT_CTRL_BLE_LLCP_PHY_UPDATE (1<<2)
+#else
+#define BT_CTRL_BLE_LLCP_PHY_UPDATE (0<<2)
+#endif
+
+#define BT_LE_CTRL_LLCP_DISC_FLAG (BT_CTRL_BLE_LLCP_CONN_UPDATE | BT_CTRL_BLE_LLCP_CHAN_MAP_UPDATE | BT_CTRL_BLE_LLCP_PHY_UPDATE)
+
+#ifdef CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX
+#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (CONFIG_BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX)
+#else
+#define BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX          (256)
+#endif
+
 #ifdef CONFIG_BT_LE_HCI_INTERFACE_USE_UART
 #define HCI_UART_EN CONFIG_BT_LE_HCI_INTERFACE_USE_UART
 #else
 #define HCI_UART_EN 0 // hci ram mode
+#endif
+
+#ifdef CONFIG_BT_LE_HCI_INTERFACE_USE_RAM
+#define DEFAULT_BT_LE_VHCI_ENABLED      (CONFIG_BT_LE_HCI_INTERFACE_USE_RAM)
+#else
+#define DEFAULT_BT_LE_VHCI_ENABLED      (0)
 #endif
 
 #ifdef CONFIG_BT_LE_SLEEP_ENABLE
