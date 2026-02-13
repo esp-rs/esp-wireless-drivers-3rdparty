@@ -34,6 +34,8 @@ fn main() {
             "esp32c3".to_string(),
             "esp32c6".to_string(),
             "esp32h2".to_string(),
+            "esp32c5".to_string(),
+            "esp32c61".to_string(),
         ]
     } else {
         args.chips
@@ -380,7 +382,22 @@ fn process(chip: &str) {
                 &format!("{dst}/libble_app.a"),
             );
         }
-
+        "esp32c5" => {
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32c5/esp32c5-bt-lib/libble_app.a"
+                ),
+                &format!("{dst}/libble_app.a"),
+            );
+        }
+        "esp32c61" => {
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/esp32c61/libble_app.a"
+                ),
+                &format!("{dst}/libble_app.a"),
+            );
+        }
         _ => panic!("Unknown chip to copy bt libs"),
     }
 
@@ -395,14 +412,19 @@ fn process(chip: &str) {
         &format!("{dst}"),
     );
     if chip != "esp32s2" {
-        if chip != "esp32s3" {
+        if chip == "esp32s3" {
             copy_files(
-                &format!("{idf_path}/components/bt/include/{chip}/include"),
+                &format!("{idf_path}/components/bt/include/esp32c3/include"),
+                &format!("{dst}"),
+            );
+        } else if chip == "esp32c61" {
+            copy_files(
+                &format!("{idf_path}/components/bt/include/esp32c6/include"),
                 &format!("{dst}"),
             );
         } else {
             copy_files(
-                &format!("{idf_path}/components/bt/include/esp32c3/include"),
+                &format!("{idf_path}/components/bt/include/{chip}/include"),
                 &format!("{dst}"),
             );
         }
