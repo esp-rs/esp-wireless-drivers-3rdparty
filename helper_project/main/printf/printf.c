@@ -912,3 +912,74 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
   va_end(va);
   return ret;
 }
+
+// syslog functionality
+
+#define VPRINTF_STACK_BUFFER_SIZE 80
+
+extern void __esp_radio_printf(const char* tag, const char* s);
+
+void syslog(const char* tag, const char* format, va_list arg);
+
+void rtc_printf(const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog("ESP_RADIO", format, arg);
+}
+
+void phy_printf(const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog("ESP_RADIO", format, arg);
+}
+
+void coexist_printf(const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog("ESP_RADIO", format, arg);
+}
+
+void net80211_printf(const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog("ESP_RADIO", format, arg);
+}
+
+void pp_printf(const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog("ESP_RADIO", format, arg);
+}
+
+void __esp_radio_log_write(unsigned int level, const char* tag, const char* format, ...) {
+  va_list arg;
+  va_start(arg, format);
+
+  syslog(tag, format, arg);
+}
+
+void __esp_radio_log_writev(unsigned int level, const char* tag, const char* format, va_list args) {
+  syslog(tag, format, args);
+}
+
+void syslog(const char* tag, const char* format, va_list arg) {
+char temp[VPRINTF_STACK_BUFFER_SIZE];
+    int len = vsnprintf(temp, sizeof(temp) - 1, format, arg);
+    temp[sizeof(temp) - 1] = 0;
+    int i;
+    for (i = len - 1; i >= 0; --i) {
+        if (temp[i] != '\n' && temp[i] != '\r' && temp[i] != ' ') {
+            break;
+        }
+        temp[i] = 0;
+    }
+    if (i > 0) {
+        __esp_radio_printf(tag, temp);
+    }
+    va_end(arg);
+}
