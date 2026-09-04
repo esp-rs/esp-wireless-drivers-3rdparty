@@ -30,6 +30,7 @@ fn main() {
             "esp32".to_string(),
             "esp32s2".to_string(),
             "esp32s3".to_string(),
+            "esp32s31".to_string(),
             "esp32c2".to_string(),
             "esp32c3".to_string(),
             "esp32c6".to_string(),
@@ -106,10 +107,8 @@ fn main() {
         &format!("{idf_path}/components/esp_common/include/esp_compiler.h"),
         &format!("{dst}/esp_compiler.h"),
     );
-    copy_file(
-        &format!("{idf_path}/components/esp_hw_support/include/esp_interface.h"),
-        &format!("{dst}/esp_interface.h"),
-    );
+    // ESP-IDF 6.0 removed esp_interface.h; wifi_interface_t is in
+    // esp_wifi_types_generic.h (copied with the wifi include tree above).
     copy_file(
         &format!("{idf_path}/components/esp_hw_support/include/esp_private/esp_pmu.h"),
         &format!("{dst}/esp_private/esp_pmu.h"),
@@ -137,7 +136,7 @@ fn main() {
     );
 
     copy_file(
-        &format!("{idf_path}/components/hal/include/hal/pmu_types.h"),
+        &format!("{idf_path}/components/esp_hal_pmu/include/hal/pmu_types.h"),
         &format!("{dst}/hal/pmu_types.h"),
     );
     copy_file(
@@ -152,6 +151,9 @@ fn main() {
         &format!("{idf_path}/components/hal/include/hal/modem_clock_hal.h"),
         &format!("{dst}/hal/modem_clock_hal.h"),
     );
+
+    replace_in_file(&format!("{dst}/hal/modem_clock_hal.h"), r#"#include "hal/regi2c_ctrl_ll.h""#, "");
+    replace_in_file(&format!("{dst}/esp_private/esp_modem_clock.h"), r#"#include "hal/regi2c_ctrl_ll.h""#, "");
 
     replace_in_file(&format!("{dst}/esp_coexist_internal.h"), "private/", "");
     replace_in_file(
@@ -235,10 +237,13 @@ fn process(chip: &str) {
         "./helper_project/sdkconfig.defaults",
     );
 
-    build(
-        "helper_project",
-        &[&format!("-DIDF_TARGET={chip}"), "build"],
-    );
+    let target_arg = format!("-DIDF_TARGET={chip}");
+    // ESP32-S31 is still a preview target in ESP-IDF 6.1.
+    if chip == "esp32s31" {
+        build("helper_project", &["--preview", &target_arg, "build"]);
+    } else {
+        build("helper_project", &[&target_arg, "build"]);
+    }
 
     let dst = format!("./libs/{chip}/");
     remove_dir_all(&dst);
@@ -377,7 +382,7 @@ fn process(chip: &str) {
         "esp32h2" => {
             copy_file(
                 &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/libble_app.a"
+                    "{idf_path}/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/esp32h2/libble_app.a"
                 ),
                 &format!("{dst}/libble_app.a"),
             );
@@ -396,6 +401,26 @@ fn process(chip: &str) {
                     "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/esp32c61/libble_app.a"
                 ),
                 &format!("{dst}/libble_app.a"),
+            );
+        }
+        "esp32s31" => {
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libble_app.a"
+                ),
+                &format!("{dst}/libble_app.a"),
+            );
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libbredr_app.a"
+                ),
+                &format!("{dst}/libbredr_app.a"),
+            );
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libbtdm_common.a"
+                ),
+                &format!("{dst}/libbtdm_common.a"),
             );
         }
         _ => panic!("Unknown chip to copy bt libs"),
@@ -463,12 +488,38 @@ fn process(chip: &str) {
             r#"#include "../../../../controller/"#,
             r#"//#include "../../../../controller/"#,
         );
+        replace_in_file(
+            &format!("{dst}/esp_bt.h"),
+            r#"#include "../../../controller/"#,
+            r#"//#include "../../../controller/"#,
+        );
     }
 
     if chip == "esp32c2" || chip == "esp32c6" || chip == "esp32h2" {
         copy_file(
             &format!("{idf_path}/components/bt/controller/{chip}/esp_bt_cfg.h"),
             &format!("{dst}/esp_bt_cfg.h"),
+        );
+    }
+
+    if chip == "esp32s31" {
+        copy_file(
+            &format!(
+                "{idf_path}/components/bt/porting_btdm/controller/btdm_common/include/btdm_user_cfg.h"
+            ),
+            &format!("{dst}/btdm_user_cfg.h"),
+        );
+        copy_file(
+            &format!(
+                "{idf_path}/components/bt/porting_btdm/controller/ble/include/ble_user_cfg.h"
+            ),
+            &format!("{dst}/ble_user_cfg.h"),
+        );
+        copy_file(
+            &format!(
+                "{idf_path}/components/bt/porting_btdm/controller/bredr/include/bredr_user_cfg.h"
+            ),
+            &format!("{dst}/bredr_user_cfg.h"),
         );
     }
 
@@ -481,14 +532,14 @@ fn process(chip: &str) {
         &format!("{dst}/soc/reg_base.h"),
     );
 
-    let soc_pmu_supported = ["esp32c6", "esp32h2"].contains(&chip);
+    let soc_pmu_supported = ["esp32c6", "esp32h2", "esp32s31"].contains(&chip);
     if soc_pmu_supported {
         copy_file(
-            &format!("{idf_path}/components/hal/{chip}/include/hal/pmu_hal.h"),
+            &format!("{idf_path}/components/esp_hal_pmu/{chip}/include/hal/pmu_hal.h"),
             &format!("{dst}/hal/pmu_hal.h"),
         );
         copy_file(
-            &format!("{idf_path}/components/hal/{chip}/include/hal/pmu_ll.h"),
+            &format!("{idf_path}/components/esp_hal_pmu/{chip}/include/hal/pmu_ll.h"),
             &format!("{dst}/hal/pmu_ll.h"),
         );
         copy_file(
@@ -513,7 +564,7 @@ fn process(chip: &str) {
         );
     }
 
-    let modem_lock_is_independent = ["esp32c6", "esp32h2"].contains(&chip);
+    let modem_lock_is_independent = ["esp32c6", "esp32h2", "esp32s31"].contains(&chip);
     if modem_lock_is_independent {
         copy_file(
             &format!("{idf_path}/components/soc/{chip}/include/modem/modem_syscon_struct.h"),
@@ -606,10 +657,11 @@ fn build(cwd: &str, args: &[&str]) {
         .expect("Unable to run command {cmd}");
 
     if !output.status.success() {
-        println!(
+        eprintln!(
             "Failed to run build {}",
             str::from_utf8(&output.stderr).unwrap()
         );
+        std::process::exit(output.status.code().unwrap_or(1));
     }
 }
 
