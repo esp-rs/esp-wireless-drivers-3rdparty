@@ -30,3 +30,26 @@ if(_prefix_map_options)
         endif()
     endforeach()
 endif()
+
+# The supplicant's WPA3-Personal (SAE) is built on mbedTLS / PSA crypto
+# (CONFIG_ESP_WIFI_MBEDTLS_CRYPTO=y). Whenever the nvs_flash component is in
+# the build, the mbedtls component compiles PSA's persistent-key storage
+# (port/psa_crypto_storage/esp_psa_its.c over NVS) into libmbedcrypto.a and
+# defines ESP_PSA_ITS_AVAILABLE, which keeps MBEDTLS_PSA_CRYPTO_STORAGE_C on.
+# The host has neither NVS nor a need for persistent keys (SAE keys are
+# volatile), so take the storage back out: with CONFIG_MBEDTLS_FS_IO=n and no
+# ESP_PSA_ITS_AVAILABLE, esp_config.h undefines MBEDTLS_PSA_CRYPTO_STORAGE_C.
+if(CONFIG_ESP_WIFI_MBEDTLS_CRYPTO AND TARGET tfpsacrypto)
+    foreach(_prop COMPILE_DEFINITIONS INTERFACE_COMPILE_DEFINITIONS)
+        get_target_property(_defs tfpsacrypto ${_prop})
+        if(_defs)
+            list(REMOVE_ITEM _defs ESP_PSA_ITS_AVAILABLE)
+            set_target_properties(tfpsacrypto PROPERTIES ${_prop} "${_defs}")
+        endif()
+    endforeach()
+    get_target_property(_srcs tfpsacrypto SOURCES)
+    if(_srcs)
+        list(FILTER _srcs EXCLUDE REGEX "esp_psa_its\\.c$")
+        set_target_properties(tfpsacrypto PROPERTIES SOURCES "${_srcs}")
+    endif()
+endif()

@@ -273,6 +273,16 @@ fn process(chip: &str) {
         );
     }
 
+    // mbedTLS crypto, when the supplicant is built on it
+    // (CONFIG_ESP_WIFI_MBEDTLS_CRYPTO=y — WPA3-Personal/SAE needs it)
+    if sdkconfig_enabled("CONFIG_ESP_WIFI_MBEDTLS_CRYPTO") {
+        log::info!("Copy libmbedcrypto.a (supplicant built on mbedTLS crypto)");
+        copy_file(
+            "./helper_project/build/esp-idf/mbedtls/mbedtls/library/libmbedcrypto.a",
+            &format!("{dst}/libmbedcrypto.a"),
+        );
+    }
+
     // blobs from ESP-IDF installation
     let idf_path = std::env::var("IDF_PATH").unwrap();
 
@@ -583,6 +593,16 @@ fn process(chip: &str) {
             &format!("{dst}/hal/modem_syscon_ll.h"),
         );
     }
+}
+
+/// Whether `option` came out as `=y` in the helper project's generated `sdkconfig`.
+fn sdkconfig_enabled(option: &str) -> bool {
+    let cwd = env::current_dir().unwrap();
+    let sdkconfig = fs::read_to_string(windows_safe_path(&cwd.join("helper_project/sdkconfig")))
+        .expect("helper_project/sdkconfig is written by the build");
+    sdkconfig
+        .lines()
+        .any(|line| line.trim() == format!("{option}=y"))
 }
 
 fn remove_dir_all(path: &str) {
