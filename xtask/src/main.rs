@@ -37,6 +37,7 @@ fn main() {
             "esp32h2".to_string(),
             "esp32c5".to_string(),
             "esp32c61".to_string(),
+            "esp32h4".to_string(),
         ]
     } else {
         args.chips
@@ -238,8 +239,8 @@ fn process(chip: &str) {
     );
 
     let target_arg = format!("-DIDF_TARGET={chip}");
-    // ESP32-S31 is still a preview target in ESP-IDF 6.1.
-    if chip == "esp32s31" {
+    // ESP32-S31 and ESP32-H4 are still preview targets in ESP-IDF 6.1.
+    if chip == "esp32s31" || chip == "esp32h4" {
         build("helper_project", &["--preview", &target_arg, "build"]);
     } else {
         build("helper_project", &[&target_arg, "build"]);
@@ -249,7 +250,9 @@ fn process(chip: &str) {
     remove_dir_all(&dst);
     mk_dir(&dst);
 
-    if chip != "esp32h2" {
+    let has_wifi = !["esp32h2", "esp32h4"].contains(&chip);
+
+    if has_wifi {
         log::info!("Create libregulatory.a");
         ar(chip, "helper_project",
             &[&format!("../{dst}/libregulatory.a"), "./build/esp-idf/esp_wifi/CMakeFiles/__idf_esp_wifi.dir/regulatory/esp_wifi_regulatory.c.obj",],
@@ -266,7 +269,7 @@ fn process(chip: &str) {
     );
 
     // the just built supplicant
-    if chip != "esp32h2" {
+    if has_wifi {
         copy_file(
             "./helper_project/build/esp-idf/wpa_supplicant/libwpa_supplicant.a",
             &format!("{dst}/libwpa_supplicant.a"),
@@ -297,7 +300,7 @@ fn process(chip: &str) {
     }
 
     // wifi
-    if chip != "esp32h2" {
+    if has_wifi {
         copy_file(
             &format!("{idf_path}/components/esp_wifi/lib/{chip}/libcore.a"),
             &format!("{dst}/libcore.a"),
@@ -423,6 +426,20 @@ fn process(chip: &str) {
                 &format!("{dst}/libbtdm_common.a"),
             );
         }
+        "esp32h4" => {
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32h4/esp32h4-bt-lib/libble_app.a"
+                ),
+                &format!("{dst}/libble_app.a"),
+            );
+            copy_file(
+                &format!(
+                    "{idf_path}/components/bt/controller/lib_esp32h4/esp32h4-bt-lib/libbtdm_common.a"
+                ),
+                &format!("{dst}/libbtdm_common.a"),
+            );
+        }
         _ => panic!("Unknown chip to copy bt libs"),
     }
 
@@ -502,7 +519,7 @@ fn process(chip: &str) {
         );
     }
 
-    if chip == "esp32s31" {
+    if chip == "esp32s31" || chip == "esp32h4" {
         copy_file(
             &format!(
                 "{idf_path}/components/bt/porting_btdm/controller/btdm_common/include/btdm_user_cfg.h"
@@ -515,6 +532,9 @@ fn process(chip: &str) {
             ),
             &format!("{dst}/ble_user_cfg.h"),
         );
+    }
+
+    if chip == "esp32s31" {
         copy_file(
             &format!(
                 "{idf_path}/components/bt/porting_btdm/controller/bredr/include/bredr_user_cfg.h"
@@ -527,12 +547,13 @@ fn process(chip: &str) {
         &format!("{idf_path}/components/soc/{chip}/include/soc/soc.h"),
         &format!("{dst}/soc/soc.h"),
     );
+    let reg_base_dir = if chip == "esp32h4" { "include" } else { "register" };
     copy_file(
-        &format!("{idf_path}/components/soc/{chip}/register/soc/reg_base.h"),
+        &format!("{idf_path}/components/soc/{chip}/{reg_base_dir}/soc/reg_base.h"),
         &format!("{dst}/soc/reg_base.h"),
     );
 
-    let soc_pmu_supported = ["esp32c6", "esp32h2", "esp32s31"].contains(&chip);
+    let soc_pmu_supported = ["esp32c6", "esp32h2", "esp32s31", "esp32h4"].contains(&chip);
     if soc_pmu_supported {
         copy_file(
             &format!("{idf_path}/components/esp_hal_pmu/{chip}/include/hal/pmu_hal.h"),
@@ -564,7 +585,7 @@ fn process(chip: &str) {
         );
     }
 
-    let modem_lock_is_independent = ["esp32c6", "esp32h2", "esp32s31"].contains(&chip);
+    let modem_lock_is_independent = ["esp32c6", "esp32h2", "esp32s31", "esp32h4"].contains(&chip);
     if modem_lock_is_independent {
         copy_file(
             &format!("{idf_path}/components/soc/{chip}/include/modem/modem_syscon_struct.h"),
