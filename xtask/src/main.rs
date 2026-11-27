@@ -26,19 +26,14 @@ fn main() {
     }
 
     let chips = if args.chips.is_empty() {
-        vec![
-            "esp32".to_string(),
-            "esp32s2".to_string(),
-            "esp32s3".to_string(),
-            "esp32s31".to_string(),
-            "esp32c2".to_string(),
-            "esp32c3".to_string(),
-            "esp32c6".to_string(),
-            "esp32h2".to_string(),
-            "esp32c5".to_string(),
-            "esp32c61".to_string(),
-            "esp32h4".to_string(),
-        ]
+        let mut chips: Vec<String> = fs::read_dir("./patch")
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().join("sdkconfig.defaults").is_file())
+            .map(|e| e.file_name().into_string().unwrap())
+            .collect();
+        chips.sort();
+        chips
     } else {
         args.chips
     };
@@ -135,6 +130,28 @@ fn main() {
         &format!("{idf_path}/components/esp_common/include/esp_types.h"),
         &format!("{dst}/esp_types.h"),
     );
+    copy_file(
+        &format!("{idf_path}/components/esp_common/include/esp_assert.h"),
+        &format!("{dst}/esp_assert.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/esp_hw_support/etm/include/esp_etm.h"),
+        &format!("{dst}/esp_etm.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/hal/include/hal/etm_types.h"),
+        &format!("{dst}/hal/etm_types.h"),
+    );
+    copy_file(
+        &format!("{idf_path}/components/bt/host/nimble/nimble/nimble/include/nimble/nimble_npl.h"),
+        &format!("{dst}/nimble/nimble_npl.h"),
+    );
+    copy_file(
+        &format!(
+            "{idf_path}/components/bt/host/nimble/nimble/porting/npl/dummy/include/nimble/nimble_npl_os.h"
+        ),
+        &format!("{dst}/nimble/nimble_npl_os.h"),
+    );
 
     copy_file(
         &format!("{idf_path}/components/esp_hal_pmu/include/hal/pmu_types.h"),
@@ -153,8 +170,16 @@ fn main() {
         &format!("{dst}/hal/modem_clock_hal.h"),
     );
 
-    replace_in_file(&format!("{dst}/hal/modem_clock_hal.h"), r#"#include "hal/regi2c_ctrl_ll.h""#, "");
-    replace_in_file(&format!("{dst}/esp_private/esp_modem_clock.h"), r#"#include "hal/regi2c_ctrl_ll.h""#, "");
+    replace_in_file(
+        &format!("{dst}/hal/modem_clock_hal.h"),
+        r#"#include "hal/regi2c_ctrl_ll.h""#,
+        "",
+    );
+    replace_in_file(
+        &format!("{dst}/esp_private/esp_modem_clock.h"),
+        r#"#include "hal/regi2c_ctrl_ll.h""#,
+        "",
+    );
 
     replace_in_file(&format!("{dst}/esp_coexist_internal.h"), "private/", "");
     replace_in_file(
@@ -233,29 +258,46 @@ fn process(chip: &str) {
     // build
     log::info!("Build");
 
-    copy_file(
-        &format!("./patch/{chip}/sdkconfig.defaults"),
-        "./helper_project/sdkconfig.defaults",
-    );
+    let idf_path = std::env::var("IDF_PATH").unwrap();
+    let patch = format!("./patch/{chip}/sdkconfig.defaults");
+    if !Path::new(&patch).exists() {
+        let has_wifi = Path::new(&format!("{idf_path}/components/esp_wifi/lib/{chip}")).exists();
+        let template = ["esp32c6", "esp32c5", "esp32h2", "esp32h4"]
+            .into_iter()
+            .find(|c| {
+                Path::new(&format!("./patch/{c}/sdkconfig.defaults")).exists()
+                    && Path::new(&format!("{idf_path}/components/esp_wifi/lib/{c}")).exists()
+                        == has_wifi
+            })
+            .unwrap_or_else(|| panic!("No sdkconfig.defaults template for {chip}"));
+        log::warn!("{chip}: no {patch}, copied it from {template}");
+        copy_file(&format!("./patch/{template}/sdkconfig.defaults"), &patch);
+    }
+
+    copy_file(&patch, "./helper_project/sdkconfig.defaults");
 
     let target_arg = format!("-DIDF_TARGET={chip}");
-    // ESP32-S31 and ESP32-H4 are still preview targets in ESP-IDF 6.1.
-    if chip == "esp32s31" || chip == "esp32h4" {
-        build("helper_project", &["--preview", &target_arg, "build"]);
-    } else {
-        build("helper_project", &[&target_arg, "build"]);
-    }
+    build("helper_project", &["--preview", &target_arg, "build"]);
+
+    let sdkconfig = fs::read_to_string("./helper_project/build/config/sdkconfig.h").unwrap();
+    let has_cfg = |name: &str| sdkconfig.contains(&format!("#define {name} 1"));
+    let has_wifi = has_cfg("CONFIG_SOC_WIFI_SUPPORTED");
+    let has_bt = has_cfg("CONFIG_SOC_BT_SUPPORTED");
+    let is_xtensa = has_cfg("CONFIG_IDF_TARGET_ARCH_XTENSA");
 
     let dst = format!("./libs/{chip}/");
     remove_dir_all(&dst);
     mk_dir(&dst);
 
-    let has_wifi = !["esp32h2", "esp32h4"].contains(&chip);
-
     if has_wifi {
         log::info!("Create libregulatory.a");
-        ar(chip, "helper_project",
-            &[&format!("../{dst}/libregulatory.a"), "./build/esp-idf/esp_wifi/CMakeFiles/__idf_esp_wifi.dir/regulatory/esp_wifi_regulatory.c.obj",],
+        ar(
+            is_xtensa,
+            "helper_project",
+            &[
+                &format!("../{dst}/libregulatory.a"),
+                "./build/esp-idf/esp_wifi/CMakeFiles/__idf_esp_wifi.dir/regulatory/esp_wifi_regulatory.c.obj",
+            ],
         );
     }
 
@@ -277,62 +319,17 @@ fn process(chip: &str) {
     }
 
     // blobs from ESP-IDF installation
-    let idf_path = std::env::var("IDF_PATH").unwrap();
-
     // phy
-    copy_file(
-        &format!("{idf_path}/components/esp_phy/lib/{chip}/libphy.a"),
-        &format!("{dst}/libphy.a"),
-    );
-
-    if chip == "esp32" {
-        copy_file(
-            &format!("{idf_path}/components/esp_phy/lib/{chip}/librtc.a"),
-            &format!("{dst}/librtc.a"),
-        );
-    }
-
-    if chip != "esp32" && chip != "esp32s2" {
-        copy_file(
-            &format!("{idf_path}/components/esp_phy/lib/{chip}/libbtbb.a"),
-            &format!("{dst}/libbtbb.a"),
-        );
+    for lib in ["libphy.a", "librtc.a", "libbtbb.a"] {
+        let src = format!("{idf_path}/components/esp_phy/lib/{chip}/{lib}");
+        if Path::new(&src).exists() {
+            copy_file(&src, &format!("{dst}/{lib}"));
+        }
     }
 
     // wifi
     if has_wifi {
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libcore.a"),
-            &format!("{dst}/libcore.a"),
-        );
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libpp.a"),
-            &format!("{dst}/libpp.a"),
-        );
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libespnow.a"),
-            &format!("{dst}/libespnow.a"),
-        );
-        if chip != "esp32c2" {
-            copy_file(
-                &format!("{idf_path}/components/esp_wifi/lib/{chip}/libmesh.a"),
-                &format!("{dst}/libmesh.a"),
-            );
-        }
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libnet80211.a"),
-            &format!("{dst}/libnet80211.a"),
-        );
-        copy_file(
-            &format!("{idf_path}/components/esp_wifi/lib/{chip}/libsmartconfig.a"),
-            &format!("{dst}/libsmartconfig.a"),
-        );
-        if chip != "esp32c2" {
-            copy_file(
-                &format!("{idf_path}/components/esp_wifi/lib/{chip}/libwapi.a"),
-                &format!("{dst}/libwapi.a"),
-            );
-        }
+        copy_files(&format!("{idf_path}/components/esp_wifi/lib/{chip}"), &dst);
     }
 
     // coex
@@ -342,105 +339,26 @@ fn process(chip: &str) {
     );
 
     // bt
-    match chip {
-        "esp32" => {
-            copy_file(
-                &format!("{idf_path}/components/bt/controller/lib_esp32/esp32/libbtdm_app.a"),
-                &format!("{dst}/libbtdm_app.a"),
-            );
+    let bt_target = has_bt.then(|| bt_target(&idf_path, chip));
+    if let Some(bt_target) = &bt_target {
+        let bt_lib_dir = [
+            format!(
+                "{idf_path}/components/bt/controller/lib_{bt_target}/{bt_target}-bt-lib/{chip}"
+            ),
+            format!("{idf_path}/components/bt/controller/lib_{bt_target}/{bt_target}-bt-lib"),
+            format!("{idf_path}/components/bt/controller/lib_{bt_target}/{chip}"),
+            format!("{idf_path}/components/bt/controller/lib_{bt_target}_family/{chip}"),
+        ]
+        .into_iter()
+        .find(|dir| Path::new(dir).is_dir())
+        .unwrap_or_else(|| panic!("Unknown chip to copy bt libs: {chip}"));
+
+        for entry in fs::read_dir(&bt_lib_dir).unwrap() {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            if name.starts_with("lib") && name.ends_with(".a") && !name.ends_with("_flash.a") {
+                copy_file(&format!("{bt_lib_dir}/{name}"), &format!("{dst}/{name}"));
+            }
         }
-        "esp32c3" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c3_family/esp32c3/libbtdm_app.a"
-                ),
-                &format!("{dst}/libbtdm_app.a"),
-            );
-        }
-        "esp32s3" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c3_family/esp32s3/libbtdm_app.a"
-                ),
-                &format!("{dst}/libbtdm_app.a"),
-            );
-        }
-        "esp32s2" => (),
-        "esp32c2" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c2/esp32c2-bt-lib/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-        }
-        "esp32c6" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/esp32c6/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-        }
-        "esp32h2" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32h2/esp32h2-bt-lib/esp32h2/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-        }
-        "esp32c5" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c5/esp32c5-bt-lib/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-        }
-        "esp32c61" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32c6/esp32c6-bt-lib/esp32c61/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-        }
-        "esp32s31" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libbredr_app.a"
-                ),
-                &format!("{dst}/libbredr_app.a"),
-            );
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32s31/esp32s31-bt-lib/libbtdm_common.a"
-                ),
-                &format!("{dst}/libbtdm_common.a"),
-            );
-        }
-        "esp32h4" => {
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32h4/esp32h4-bt-lib/libble_app.a"
-                ),
-                &format!("{dst}/libble_app.a"),
-            );
-            copy_file(
-                &format!(
-                    "{idf_path}/components/bt/controller/lib_esp32h4/esp32h4-bt-lib/libbtdm_common.a"
-                ),
-                &format!("{dst}/libbtdm_common.a"),
-            );
-        }
-        _ => panic!("Unknown chip to copy bt libs"),
     }
 
     // copy headers
@@ -453,23 +371,11 @@ fn process(chip: &str) {
         &format!("{idf_path}/components/esp_phy/{chip}/include"),
         &format!("{dst}"),
     );
-    if chip != "esp32s2" {
-        if chip == "esp32s3" {
-            copy_files(
-                &format!("{idf_path}/components/bt/include/esp32c3/include"),
-                &format!("{dst}"),
-            );
-        } else if chip == "esp32c61" {
-            copy_files(
-                &format!("{idf_path}/components/bt/include/esp32c6/include"),
-                &format!("{dst}"),
-            );
-        } else {
-            copy_files(
-                &format!("{idf_path}/components/bt/include/{chip}/include"),
-                &format!("{dst}"),
-            );
-        }
+    if let Some(bt_target) = &bt_target {
+        copy_files(
+            &format!("{idf_path}/components/bt/include/{bt_target}/include"),
+            &format!("{dst}"),
+        );
     }
     copy_file(
         "./helper_project/build/config/sdkconfig.h",
@@ -491,15 +397,12 @@ fn process(chip: &str) {
         &format!("{idf_path}/components/soc/{chip}/include/soc/clk_tree_defs.h"),
         &format!("{dst}/soc/clk_tree_defs.h"),
     );
-    if chip != "esp32s2" {
+    if has_bt {
         replace_in_file(
             &format!("{dst}/esp_bt.h"),
             r#"#include "esp_task.h""#,
             r#""#,
         );
-    }
-
-    if chip != "esp32s2" {
         replace_in_file(
             &format!("{dst}/esp_bt.h"),
             r#"#include "../../../../controller/"#,
@@ -510,50 +413,43 @@ fn process(chip: &str) {
             r#"#include "../../../controller/"#,
             r#"//#include "../../../controller/"#,
         );
-    }
 
-    if chip == "esp32c2" || chip == "esp32c6" || chip == "esp32h2" {
-        copy_file(
-            &format!("{idf_path}/components/bt/controller/{chip}/esp_bt_cfg.h"),
-            &format!("{dst}/esp_bt_cfg.h"),
-        );
-    }
-
-    if chip == "esp32s31" || chip == "esp32h4" {
-        copy_file(
-            &format!(
-                "{idf_path}/components/bt/porting_btdm/controller/btdm_common/include/btdm_user_cfg.h"
-            ),
-            &format!("{dst}/btdm_user_cfg.h"),
-        );
-        copy_file(
-            &format!(
-                "{idf_path}/components/bt/porting_btdm/controller/ble/include/ble_user_cfg.h"
-            ),
-            &format!("{dst}/ble_user_cfg.h"),
-        );
-    }
-
-    if chip == "esp32s31" {
-        copy_file(
-            &format!(
-                "{idf_path}/components/bt/porting_btdm/controller/bredr/include/bredr_user_cfg.h"
-            ),
-            &format!("{dst}/bredr_user_cfg.h"),
-        );
+        let esp_bt = fs::read_to_string(format!("{dst}/esp_bt.h")).unwrap();
+        for (sub, header) in [
+            ("btdm_common", "btdm_user_cfg.h"),
+            ("ble", "ble_user_cfg.h"),
+            ("bredr", "bredr_user_cfg.h"),
+        ] {
+            if esp_bt.contains(header) {
+                copy_file(
+                    &format!(
+                        "{idf_path}/components/bt/porting_btdm/controller/{sub}/include/{header}"
+                    ),
+                    &format!("{dst}/{header}"),
+                );
+            }
+        }
     }
 
     copy_file(
         &format!("{idf_path}/components/soc/{chip}/include/soc/soc.h"),
         &format!("{dst}/soc/soc.h"),
     );
-    let reg_base_dir = if chip == "esp32h4" { "include" } else { "register" };
+    let reg_base_dir = if Path::new(&format!(
+        "{idf_path}/components/soc/{chip}/register/soc/reg_base.h"
+    ))
+    .exists()
+    {
+        "register"
+    } else {
+        "include"
+    };
     copy_file(
         &format!("{idf_path}/components/soc/{chip}/{reg_base_dir}/soc/reg_base.h"),
         &format!("{dst}/soc/reg_base.h"),
     );
 
-    let soc_pmu_supported = ["esp32c6", "esp32h2", "esp32s31", "esp32h4"].contains(&chip);
+    let soc_pmu_supported = has_cfg("CONFIG_SOC_PMU_SUPPORTED");
     if soc_pmu_supported {
         copy_file(
             &format!("{idf_path}/components/esp_hal_pmu/{chip}/include/hal/pmu_hal.h"),
@@ -585,7 +481,7 @@ fn process(chip: &str) {
         );
     }
 
-    let modem_lock_is_independent = ["esp32c6", "esp32h2", "esp32s31", "esp32h4"].contains(&chip);
+    let modem_lock_is_independent = has_cfg("CONFIG_SOC_MODEM_CLOCK_IS_INDEPENDENT");
     if modem_lock_is_independent {
         copy_file(
             &format!("{idf_path}/components/soc/{chip}/include/modem/modem_syscon_struct.h"),
@@ -624,6 +520,7 @@ fn copy_file(from: &str, to: &str) {
         windows_safe_path(&cwd.join(to)),
     )
     .expect(&format!("Unable to copy {from} to {to}"));
+    set_file_mode(&windows_safe_path(&cwd.join(to)));
 }
 
 fn copy_files(from: &str, to: &str) {
@@ -649,9 +546,20 @@ fn copy_files(from: &str, to: &str) {
             windows_safe_path(&cwd.join(from).join(&fname)),
             windows_safe_path(&cwd.join(to).join(&fname)),
         )
-        .expect("Unable to copy sdkconfig.defaults");
+        .unwrap_or_else(|e| panic!("Unable to copy {from}/{fname} to {to}: {e}"));
+        set_file_mode(&windows_safe_path(&cwd.join(to).join(&fname)));
     }
 }
+
+/// Some ESP-IDF blobs carry the executable bit, which `fs::copy` would carry over.
+#[cfg(unix)]
+fn set_file_mode(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o644)).unwrap();
+}
+
+#[cfg(not(unix))]
+fn set_file_mode(_path: &Path) {}
 
 fn build(cwd: &str, args: &[&str]) {
     let mut adapted_args = Vec::new();
@@ -686,8 +594,27 @@ fn build(cwd: &str, args: &[&str]) {
     }
 }
 
-fn ar(chip: &str, cwd: &str, args: &[&str]) {
-    let ar = if ["esp32", "esp32s2", "esp32s3"].contains(&chip) {
+fn bt_target(idf_path: &str, chip: &str) -> String {
+    let cmake = fs::read_to_string(format!("{idf_path}/components/bt/CMakeLists.txt")).unwrap();
+    let symbol = format!("CONFIG_IDF_TARGET_{}", chip.to_ascii_uppercase());
+    let lines: Vec<&str> = cmake.lines().map(str::trim).collect();
+    lines
+        .windows(2)
+        .find_map(|pair| {
+            let target = pair[1]
+                .strip_prefix("set(TARGET_SRC_NAME \"")?
+                .split_once('"')?
+                .0;
+            pair[0]
+                .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .any(|word| word == symbol)
+                .then(|| target.to_string())
+        })
+        .unwrap_or_else(|| chip.to_string())
+}
+
+fn ar(is_xtensa: bool, cwd: &str, args: &[&str]) {
+    let ar = if is_xtensa {
         "xtensa-esp-elf-ar"
     } else {
         "riscv32-esp-elf-ar"
